@@ -22,7 +22,7 @@ from src.models.user import User
 # Use PostgreSQL test database (same container, different database)
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://hecate:hecate@localhost:5432/hecate_sentinel_test",
+    "postgresql+asyncpg://hecate:hecate@localhost:5433/hecate_sentinel_test",
 )
 
 

@@ -31,6 +31,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=7.0.0",
+    "sphinx>=9.0.4",
 ]
 
 [build-system]
