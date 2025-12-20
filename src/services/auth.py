@@ -48,6 +48,26 @@ class AuthService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    # === User Expiration ===
+
+    async def check_and_handle_expiration(self, user: User) -> bool:
+        """
+        Check if user has expired and deactivate if so.
+
+        Returns True if user is valid (not expired or no expiration set).
+        Returns False if user has expired (and sets is_active=False).
+        """
+        if user.expires_on is None:
+            return True
+
+        now = datetime.now(timezone.utc)
+        if user.expires_on <= now:
+            # User has expired - deactivate them
+            user.is_active = False
+            return False
+
+        return True
+
     # === User Lookup Methods ===
 
     async def get_user_by_username(self, username: str) -> User | None:
@@ -77,8 +97,13 @@ class AuthService:
         )
         return result.scalar_one_or_none()
 
-    async def get_user_by_uuid(self, user_uuid: str) -> User | None:
-        """Get user by UUID."""
+    async def get_user_by_uuid(self, user_uuid: str, check_expiration: bool = True) -> User | None:
+        """Get user by UUID.
+
+        Args:
+            user_uuid: The user's UUID
+            check_expiration: If True, check and handle user expiration
+        """
         result = await self.session.execute(
             select(User)
             .options(selectinload(User.emails))
@@ -88,7 +113,13 @@ class AuthService:
                 User.is_deleted == False,  # noqa: E712
             )
         )
-        return result.scalar_one_or_none()
+        user = result.scalar_one_or_none()
+
+        if user and check_expiration:
+            if not await self.check_and_handle_expiration(user):
+                return None
+
+        return user
 
     async def get_primary_email(self, user: User) -> Email | None:
         """Get user's primary verified email."""
@@ -147,6 +178,10 @@ class AuthService:
             return None
 
         if not verify_password(password, user.password):
+            return None
+
+        # Check if user has expired
+        if not await self.check_and_handle_expiration(user):
             return None
 
         # Rehash password if needed (algorithm parameters changed)
@@ -395,6 +430,10 @@ class AuthService:
         user = result.scalar_one_or_none()
 
         if user:
+            # Check if user has expired
+            if not await self.check_and_handle_expiration(user):
+                return None
+
             # Clear magic link token after use
             user.magic_link_token = None
             user.magic_link_expires_at = None
@@ -769,8 +808,13 @@ class AuthService:
         user = await self.get_user_by_id(pending.user_id)
         return user
 
-    async def get_user_by_id(self, user_id: int) -> User | None:
-        """Get user by ID."""
+    async def get_user_by_id(self, user_id: int, check_expiration: bool = True) -> User | None:
+        """Get user by ID.
+
+        Args:
+            user_id: The user's ID
+            check_expiration: If True, check and handle user expiration
+        """
         result = await self.session.execute(
             select(User)
             .options(selectinload(User.emails))
@@ -780,7 +824,13 @@ class AuthService:
                 User.is_deleted == False,  # noqa: E712
             )
         )
-        return result.scalar_one_or_none()
+        user = result.scalar_one_or_none()
+
+        if user and check_expiration:
+            if not await self.check_and_handle_expiration(user):
+                return None
+
+        return user
 
     # === Recovery Codes ===
 

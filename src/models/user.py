@@ -41,6 +41,9 @@ class User(Base):
     totp_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Expiration (for temporary/external users)
+    expires_on: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     emails: Mapped[list["Email"]] = relationship(back_populates="user")
     phones: Mapped[list["Phone"]] = relationship(back_populates="user")
     groups: Mapped[list["Group"]] = relationship(
