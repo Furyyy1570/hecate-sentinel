@@ -53,6 +53,14 @@ from src.schemas.oauth import (
     OAuthProvidersResponse,
 )
 from src.services.auth import AuthService
+from src.services.api_key import APIKeyService
+from src.schemas.introspect import (
+    IntrospectRequest,
+    IntrospectResponse,
+    ServiceAPIKeyCreate,
+    ServiceAPIKeyResponse,
+    ServiceAPIKeyInfo,
+)
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -997,3 +1005,198 @@ async def regenerate_recovery_codes(
     await session.commit()
 
     return RecoveryCodesResponse(codes=codes)
+
+
+# === Token Introspection ===
+
+
+@router.post("/introspect", response_model=IntrospectResponse)
+async def introspect_token(
+    data: IntrospectRequest,
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
+    session: AsyncSession = Depends(get_session),
+) -> IntrospectResponse:
+    """
+    Validate a JWT token and return user information.
+
+    This endpoint is for service-to-service authentication.
+    Requires a valid service API key in the Authorization header.
+
+    Usage:
+        POST /auth/introspect
+        Authorization: Bearer <service-api-key>
+        Body: { "token": "<user-jwt-token>" }
+    """
+    # Extract service API key from Authorization header
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    service_api_key = auth_header.split(" ", 1)[1]
+
+    # Validate service API key
+    api_key_service = APIKeyService(session)
+    api_key_record = await api_key_service.validate_api_key(service_api_key)
+
+    if not api_key_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid service API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Now validate the user token
+    from src.core.security import decode_token
+
+    payload = decode_token(data.token)
+
+    if not payload:
+        await session.commit()  # Save last_used_at update
+        return IntrospectResponse(valid=False)
+
+    if payload.get("type") != "access":
+        await session.commit()
+        return IntrospectResponse(valid=False)
+
+    user_uuid = payload.get("sub")
+    token_version = payload.get("token_version")
+
+    # Get user from database
+    user = await auth_service.get_user_by_uuid(user_uuid)
+
+    if not user:
+        await session.commit()
+        return IntrospectResponse(valid=False)
+
+    # Check token version (for logout-all-sessions)
+    if user.token_version != token_version:
+        await session.commit()
+        return IntrospectResponse(valid=False)
+
+    # Check email verification
+    if not await auth_service.has_verified_email(user):
+        await session.commit()
+        return IntrospectResponse(valid=False)
+
+    # Get roles and permissions from database (real-time)
+    roles, permissions = await auth_service.get_user_roles_and_permissions(user)
+
+    await session.commit()
+
+    return IntrospectResponse(
+        valid=True,
+        user_id=user.uuid,
+        username=user.username,
+        is_admin=user.is_admin,
+        roles=roles,
+        permissions=permissions,
+    )
+
+
+# === Service API Key Management ===
+
+
+@router.post("/service-keys", response_model=ServiceAPIKeyResponse)
+async def create_service_api_key(
+    data: ServiceAPIKeyCreate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ServiceAPIKeyResponse:
+    """
+    Create a new service API key.
+
+    Admin only. The API key is only shown once upon creation.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    api_key_service = APIKeyService(session)
+
+    # Check if name already exists
+    existing = await api_key_service.get_api_key_by_name(data.name)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Service name already exists",
+        )
+
+    record, api_key = await api_key_service.create_api_key(
+        name=data.name,
+        description=data.description,
+    )
+    await session.commit()
+
+    return ServiceAPIKeyResponse(
+        name=record.name,
+        key_prefix=record.key_prefix,
+        api_key=api_key,
+    )
+
+
+@router.get("/service-keys", response_model=list[ServiceAPIKeyInfo])
+async def list_service_api_keys(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[ServiceAPIKeyInfo]:
+    """
+    List all service API keys.
+
+    Admin only. Does not show the actual keys.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    api_key_service = APIKeyService(session)
+    records = await api_key_service.list_api_keys()
+
+    return [
+        ServiceAPIKeyInfo(
+            uuid=record.uuid,
+            name=record.name,
+            description=record.description,
+            key_prefix=record.key_prefix,
+            is_active=record.is_active,
+        )
+        for record in records
+    ]
+
+
+@router.delete("/service-keys/{name}", response_model=MessageResponse)
+async def revoke_service_api_key(
+    name: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> MessageResponse:
+    """
+    Revoke a service API key.
+
+    Admin only.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    api_key_service = APIKeyService(session)
+    success = await api_key_service.revoke_api_key(name)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service API key not found",
+        )
+
+    await session.commit()
+    return MessageResponse(message=f"Service API key '{name}' has been revoked")

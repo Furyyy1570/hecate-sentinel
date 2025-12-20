@@ -12,6 +12,7 @@ from src.models.password_reset import PasswordResetToken
 from src.models.permission import Permission
 from src.models.phone import Phone
 from src.models.recovery_code import RecoveryCode
+from src.models.service_api_key import ServiceAPIKey
 from src.models.session import UserSession
 from src.models.totp_pending import TOTPPendingAuth
 from src.models.user import User
@@ -30,6 +31,7 @@ __all__ = [
     "Permission",
     "Phone",
     "RecoveryCode",
+    "ServiceAPIKey",
     "TOTPPendingAuth",
     "User",
     "UserSession",
