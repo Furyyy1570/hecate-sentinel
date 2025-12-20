@@ -49,8 +49,11 @@ class Settings(BaseSettings):
     # Request ID
     request_id_header: str = "X-Request-ID"
 
-    # Security
+    # Security / JWT
     secret_key: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_issuer: str = "hecate-sentinel"
+    jwt_audience: str = "hecate-sentinel-api"
     access_token_expire_minutes: int = 30
 
     # Authentication

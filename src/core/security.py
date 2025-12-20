@@ -3,6 +3,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from uuid import uuid4
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
@@ -45,32 +46,54 @@ def create_access_token(
     data: dict[str, Any],
     expires_delta: timedelta | None = None,
 ) -> str:
-    """Create a JWT access token."""
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
-    )
-    to_encode.update({"exp": expire, "type": "access"})
-    return jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
+    """Create a JWT access token with standard claims."""
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
+
+    to_encode = {
+        **data,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "iat": now,
+        "exp": expire,
+        "jti": str(uuid4()),
+        "type": "access",
+    }
+
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
 def create_refresh_token(
     data: dict[str, Any],
     expires_delta: timedelta | None = None,
 ) -> str:
-    """Create a JWT refresh token."""
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(days=settings.refresh_token_expire_days)
-    )
-    to_encode.update({"exp": expire, "type": "refresh"})
-    return jwt.encode(to_encode, settings.secret_key, algorithm="HS256")
+    """Create a JWT refresh token with standard claims."""
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(days=settings.refresh_token_expire_days))
+
+    to_encode = {
+        **data,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "iat": now,
+        "exp": expire,
+        "jti": str(uuid4()),
+        "type": "refresh",
+    }
+
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
 def decode_token(token: str) -> dict[str, Any] | None:
     """Decode and validate a JWT token."""
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.jwt_algorithm],
+            audience=settings.jwt_audience,
+            issuer=settings.jwt_issuer,
+        )
         return payload
     except JWTError:
         return None

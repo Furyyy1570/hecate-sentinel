@@ -39,17 +39,19 @@ async def engine():
     """Create a test database engine."""
     # Create the test database if it doesn't exist
     from sqlalchemy import create_engine, text
+    from sqlalchemy.exc import ProgrammingError
 
     sync_url = TEST_DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
     base_url = sync_url.rsplit("/", 1)[0] + "/postgres"
 
+    sync_engine = create_engine(base_url, isolation_level="AUTOCOMMIT")
     try:
-        sync_engine = create_engine(base_url, isolation_level="AUTOCOMMIT")
         with sync_engine.connect() as conn:
             conn.execute(text("CREATE DATABASE hecate_sentinel_test"))
+    except ProgrammingError:
+        pass  # Database already exists
+    finally:
         sync_engine.dispose()
-    except Exception:
-        pass  # Database might already exist
 
     engine = create_async_engine(
         TEST_DATABASE_URL,

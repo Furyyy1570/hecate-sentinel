@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-hecate}
       POSTGRES_DB: ${DB_NAME:-hecate_sentinel}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     ports:
       - "${DB_EXTERNAL_PORT:-5433}:5432"
     healthcheck:
@@ -55,8 +55,11 @@ services:
       GZIP_MINIMUM_SIZE: ${GZIP_MINIMUM_SIZE:-1000}
       # Request ID
       REQUEST_ID_HEADER: ${REQUEST_ID_HEADER:-X-Request-ID}
-      # Security
+      # Security / JWT
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-hecate-sentinel}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-hecate-sentinel-api}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       # Authentication
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}

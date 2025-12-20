@@ -29,9 +29,11 @@ from src.core.totp import (
 from src.core.user_agent import DeviceInfo
 from src.models.email import Email
 from src.models.email_verification import EmailVerificationToken
+from src.models.group import Group
 from src.models.oauth_account import OAuthAccount
 from src.models.oauth_state import OAuthState
 from src.models.password_reset import PasswordResetToken
+from src.models.permission import Permission
 from src.models.recovery_code import RecoveryCode
 from src.models.session import UserSession
 from src.models.totp_pending import TOTPPendingAuth
@@ -99,6 +101,39 @@ class AuthService:
         """Check if user has at least one verified email."""
         return any(email.is_verified for email in user.emails)
 
+    # === User Roles and Permissions ===
+
+    async def get_user_roles_and_permissions(
+        self, user: User
+    ) -> tuple[list[str], list[str]]:
+        """
+        Get user's roles (group names) and permissions.
+
+        Returns (roles, permissions).
+        """
+        # Query user with groups and their permissions loaded
+        result = await self.session.execute(
+            select(User)
+            .options(
+                selectinload(User.groups).selectinload(Group.permissions)
+            )
+            .where(User.id == user.id)
+        )
+        user_with_groups = result.scalar_one_or_none()
+
+        if not user_with_groups:
+            return [], []
+
+        roles: list[str] = []
+        permissions_set: set[str] = set()
+
+        for group in user_with_groups.groups:
+            roles.append(group.name)
+            for permission in group.permissions:
+                permissions_set.add(permission.name)
+
+        return roles, sorted(permissions_set)
+
     # === Login Methods ===
 
     async def authenticate_user(self, login: str, password: str) -> User | None:
@@ -155,10 +190,16 @@ class AuthService:
 
         Returns (tokens_dict, is_new_device, is_new_location, session, geo, device_info).
         """
+        # Get user's roles and permissions
+        roles, permissions = await self.get_user_roles_and_permissions(user)
+
         token_data = {
             "sub": str(user.uuid),
             "username": user.username,
             "token_version": user.token_version,
+            "is_admin": user.is_admin,
+            "roles": roles,
+            "permissions": permissions,
         }
 
         access_token = create_access_token(token_data)
